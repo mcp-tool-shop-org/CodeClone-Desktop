@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:CodeClone.App.ViewModels"
+             x:Class="CodeClone.App.MainPage"
+             x:DataType="vm:MainViewModel"
+             Title="CodeClone Desktop">
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
+        <!-- Toolbar -->
+        <Border Grid.Row="0"
+                BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#2D2D2D}"
+                Padding="12,8">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+                <Button Text="Open Repo"
+                        Command="{Binding OpenRepoCommand}"
+                        Margin="0,0,8,0"/>
+                <Button Grid.Column="1"
+                        Text="Run Analysis"
+                        Command="{Binding RunAnalysisCommand}"
+                        IsEnabled="{Binding IsAnalyzing, Converter={StaticResource InvertBool}}"
+                        Margin="0,0,8,0"/>
+                <ActivityIndicator Grid.Column="2"
+                                   IsRunning="{Binding IsAnalyzing}"
+                                   IsVisible="{Binding IsAnalyzing}"
+                                   HeightRequest="20"
+                                   HorizontalOptions="Start"/>
+                <Label Grid.Column="3"
+                       Text="{Binding TotalDiagnostics, StringFormat='Issues: {0}'}"
+                       VerticalOptions="Center"
+                       Margin="8,0"/>
+                <Label Grid.Column="4"
+                       Text="{Binding FilesAnalyzed, StringFormat='Files: {0}'}"
+                       VerticalOptions="Center"
+                       Margin="8,0"/>
+                <Border Grid.Column="5"
+                        BackgroundColor="{Binding StatusColor}"
+                        Padding="8,4"
+                        StrokeShape="RoundRectangle 4">
+                    <Label Text="{Binding AnalysisStatus}"
+                           TextColor="White"
+                           FontAttributes="Bold"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Main Content -->
+        <Grid Grid.Row="1" ColumnDefinitions="250,*">
+            <!-- File Tree -->
+            <Border BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1E1E1E}"
+                    Margin="0,0,1,0">
+                <Grid RowDefinitions="Auto,*">
+                    <Label Text="Files"
+                           FontAttributes="Bold"
+                           Padding="12,8"
+                           BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#333333}"/>
+                    <CollectionView Grid.Row="1"
+                                    ItemsSource="{Binding FileTree}"
+                                    SelectedItem="{Binding SelectedFile, Mode=TwoWay}"
+                                    SelectionMode="Single">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FileTreeItem">
+                                <Grid Padding="8,4" ColumnDefinitions="Auto,*,Auto">
+                                    <Label Text="{Binding Icon}"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           VerticalOptions="Center"/>
+                                    <Label Grid.Column="1"
+                                           Text="{Binding Name}"
+                                           Margin="4,0"
+                                           VerticalOptions="Center"/>
+                                    <Label Grid.Column="2"
+                                           Text="{Binding DiagnosticDisplay}"
+                                           TextColor="Orange"
+                                           VerticalOptions="Center"/>
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </Grid>
+            </Border>
+
+            <!-- Code Viewer -->
+            <Grid Grid.Column="1" RowDefinitions="Auto,*">
+                <Label Text="{Binding CurrentFileName}"
+                       FontAttributes="Bold"
+                       Padding="12,8"
+                       BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#333333}"/>
+                <CollectionView Grid.Row="1"
+                                ItemsSource="{Binding CodeLines}"
+                                SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:CodeLine">
+                            <Grid ColumnDefinitions="50,*"
+                                  BackgroundColor="{Binding BackgroundColor}"
+                                  Padding="4,2">
+                                <Label Text="{Binding LineNumber}"
+                                       TextColor="{Binding LineNumberColor}"
+                                       HorizontalTextAlignment="End"
+                                       FontFamily="Consolas"
+                                       FontSize="12"
+                                       Margin="0,0,8,0"/>
+                                <Label Grid.Column="1"
+                                       Text="{Binding Text}"
+                                       FontFamily="Consolas"
+                                       FontSize="12"/>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
+        </Grid>
+
+        <!-- Diagnostics Panel -->
+        <Border Grid.Row="2"
+                BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1E1E1E}"
+                HeightRequest="150">
+            <Grid RowDefinitions="Auto,*">
+                <Label Text="Diagnostics"
+                       FontAttributes="Bold"
+                       Padding="12,8"
+                       BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#333333}"/>
+                <CollectionView Grid.Row="1"
+                                ItemsSource="{Binding Diagnostics}"
+                                SelectedItem="{Binding SelectedDiagnostic, Mode=TwoWay}"
+                                SelectionMode="Single">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DiagnosticItem">
+                            <Grid Padding="12,6" ColumnDefinitions="Auto,Auto,*">
+                                <Label Text="{Binding Icon}"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       TextColor="{Binding IconColor}"
+                                       VerticalOptions="Center"/>
+                                <Label Grid.Column="1"
+                                       Text="{Binding Location}"
+                                       TextColor="Gray"
+                                       Margin="8,0"
+                                       VerticalOptions="Center"/>
+                                <Label Grid.Column="2"
+                                       Text="{Binding Summary}"
+                                       VerticalOptions="Center"
+                                       LineBreakMode="TailTruncation"/>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
+        </Border>
+
+        <!-- Status Bar -->
+        <Label Grid.Row="3"
+               Text="{Binding StatusText}"
+               Padding="12,4"
+               BackgroundColor="{AppThemeBinding Light=#E0E0E0, Dark=#252525}"
+               FontSize="11"/>
+    </Grid>
+
+</ContentPage>
