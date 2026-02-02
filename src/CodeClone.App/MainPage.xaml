@@ -6,35 +6,44 @@
              x:DataType="vm:MainViewModel"
              Title="CodeClone Desktop">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
+    <Grid RowDefinitions="Auto,*,Auto">
         <!-- Toolbar -->
         <Border Grid.Row="0"
                 BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#2D2D2D}"
                 Padding="12,8">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
                 <Button Text="Open Repo"
                         Command="{Binding OpenRepoCommand}"
                         Margin="0,0,8,0"/>
                 <Button Grid.Column="1"
-                        Text="Run Analysis"
-                        Command="{Binding RunAnalysisCommand}"
+                        Text="⚡ Assess Risk"
+                        Command="{Binding AssessRiskCommand}"
                         IsEnabled="{Binding IsAnalyzing, Converter={StaticResource InvertBool}}"
+                        BackgroundColor="#1976D2"
+                        TextColor="White"
                         Margin="0,0,8,0"/>
                 <Button Grid.Column="2"
-                        Text="History"
-                        Command="{Binding ViewHistoryCommand}"
+                        Text="Insights"
+                        Command="{Binding ShowInsightsCommand}"
+                        IsVisible="{Binding HasAnalysis}"
+                        Margin="0,0,4,0"/>
+                <Button Grid.Column="3"
+                        Text="Details"
+                        Command="{Binding ShowDetailsCommand}"
+                        IsVisible="{Binding HasAnalysis}"
                         Margin="0,0,8,0"/>
-                <ActivityIndicator Grid.Column="3"
+                <ActivityIndicator Grid.Column="4"
                                    IsRunning="{Binding IsAnalyzing}"
                                    IsVisible="{Binding IsAnalyzing}"
                                    HeightRequest="20"
                                    HorizontalOptions="Start"/>
 
-                <!-- Risk Score Badge (The Headline Metric) -->
-                <Border Grid.Column="4"
+                <!-- Risk Score Badge -->
+                <Border Grid.Column="5"
                         BackgroundColor="{Binding RiskColor}"
                         Padding="12,6"
-                        StrokeShape="RoundRectangle 6">
+                        StrokeShape="RoundRectangle 6"
+                        IsVisible="{Binding HasAnalysis}">
                     <HorizontalStackLayout Spacing="8">
                         <Label Text="RISK:"
                                TextColor="White"
@@ -45,12 +54,8 @@
                                FontAttributes="Bold"
                                FontSize="14"
                                VerticalOptions="Center"/>
-                        <Label Text="{Binding RiskScore, StringFormat='({0})'}"
-                               TextColor="#FFFFFFCC"
-                               FontSize="11"
-                               VerticalOptions="Center"/>
                         <Label Text="{Binding TrendIcon}"
-                               TextColor="{Binding TrendColor}"
+                               TextColor="White"
                                FontSize="16"
                                FontAttributes="Bold"
                                VerticalOptions="Center"
@@ -60,177 +65,300 @@
             </Grid>
         </Border>
 
-        <!-- Comparison Banner (shows when we have delta) -->
-        <Border Grid.Row="1"
-                BackgroundColor="{Binding TrendColor}"
-                Padding="12,6"
-                IsVisible="{Binding HasComparison}">
-            <Label TextColor="White"
-                   HorizontalOptions="Center">
-                <Label.FormattedText>
-                    <FormattedString>
-                        <Span Text="vs last analysis: "/>
-                        <Span Text="{Binding DiagnosticDelta, StringFormat='{0:+#;-#;0} issues'}"
-                              FontAttributes="Bold"/>
-                    </FormattedString>
-                </Label.FormattedText>
-            </Label>
-        </Border>
+        <!-- Main Content Area -->
+        <Grid Grid.Row="1">
+            <!-- INSIGHT DASHBOARD (Default View) -->
+            <ScrollView IsVisible="{Binding ShowDashboard}">
+                <VerticalStackLayout Padding="24" Spacing="20">
 
-        <!-- Main Content -->
-        <Grid Grid.Row="2" ColumnDefinitions="250,*,200">
-            <!-- File Tree -->
-            <Border BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1E1E1E}"
-                    Margin="0,0,1,0">
-                <Grid RowDefinitions="Auto,*">
-                    <Label Text="Files"
+                    <!-- Decision Summary Card -->
+                    <Border BackgroundColor="{Binding InsightBackgroundColor}"
+                            Padding="24"
+                            StrokeShape="RoundRectangle 12"
+                            Stroke="{Binding InsightColor}"
+                            StrokeThickness="2">
+                        <VerticalStackLayout Spacing="12">
+                            <Label Text="{Binding InsightHeadline}"
+                                   FontSize="24"
+                                   FontAttributes="Bold"
+                                   TextColor="{Binding InsightColor}"/>
+                            <Label Text="{Binding InsightSubtext}"
+                                   FontSize="16"
+                                   TextColor="#424242"/>
+                            <BoxView HeightRequest="1" Color="#E0E0E0" Margin="0,8"/>
+                            <Label Text="Why this matters:"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="#757575"/>
+                            <Label Text="{Binding InsightWhyItMatters}"
+                                   FontSize="14"
+                                   TextColor="#616161"/>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Trend Alert (if comparison available) -->
+                    <Border BackgroundColor="{Binding TrendColor}"
+                            Padding="16"
+                            StrokeShape="RoundRectangle 8"
+                            IsVisible="{Binding HasTrendInsight}">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="{Binding TrendHeadline}"
+                                   FontSize="16"
+                                   FontAttributes="Bold"
+                                   TextColor="White"/>
+                            <Label Text="{Binding TrendSubtext}"
+                                   FontSize="13"
+                                   TextColor="#FFFFFFCC"/>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Key Metrics -->
+                    <Label Text="Key Metrics"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           Margin="0,8,0,0"/>
+                    <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="16">
+                        <!-- Duplication % -->
+                        <Border BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#2D2D2D}"
+                                Padding="16"
+                                StrokeShape="RoundRectangle 8">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding DuplicationPercent, StringFormat='{0:F1}%'}"
+                                       FontSize="28"
+                                       FontAttributes="Bold"
+                                       TextColor="#1976D2"/>
+                                <Label Text="Estimated Duplication"
+                                       FontSize="11"
+                                       TextColor="Gray"/>
+                            </VerticalStackLayout>
+                        </Border>
+                        <!-- Hotspots -->
+                        <Border Grid.Column="1"
+                                BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#2D2D2D}"
+                                Padding="16"
+                                StrokeShape="RoundRectangle 8">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding HotspotCount}"
+                                       FontSize="28"
+                                       FontAttributes="Bold"
+                                       TextColor="#F57C00"/>
+                                <Label Text="Risk Hotspots"
+                                       FontSize="11"
+                                       TextColor="Gray"/>
+                            </VerticalStackLayout>
+                        </Border>
+                        <!-- Affected Files -->
+                        <Border Grid.Column="2"
+                                BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#2D2D2D}"
+                                Padding="16"
+                                StrokeShape="RoundRectangle 8">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding AffectedFiles}"
+                                       FontSize="28"
+                                       FontAttributes="Bold"
+                                       TextColor="#7B1FA2"/>
+                                <Label Text="Affected Areas"
+                                       FontSize="11"
+                                       TextColor="Gray"/>
+                            </VerticalStackLayout>
+                        </Border>
+                        <!-- Affected Lines -->
+                        <Border Grid.Column="3"
+                                BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#2D2D2D}"
+                                Padding="16"
+                                StrokeShape="RoundRectangle 8">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding AffectedLines}"
+                                       FontSize="28"
+                                       FontAttributes="Bold"
+                                       TextColor="#455A64"/>
+                                <Label Text="Lines at Risk"
+                                       FontSize="11"
+                                       TextColor="Gray"/>
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+
+                    <!-- What Should I Fix First? -->
+                    <Label Text="📋 What Should I Fix First?"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           Margin="0,16,0,0"/>
+                    <Border BackgroundColor="{AppThemeBinding Light=White, Dark=#1E1E1E}"
+                            Padding="0"
+                            StrokeShape="RoundRectangle 8"
+                            Stroke="#E0E0E0">
+                        <CollectionView ItemsSource="{Binding ActionItems}"
+                                        SelectedItem="{Binding SelectedAction, Mode=TwoWay}"
+                                        SelectionMode="Single">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ActionItemViewModel">
+                                    <Border Padding="16"
+                                            BackgroundColor="Transparent"
+                                            StrokeThickness="0">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto">
+                                            <!-- Priority indicator -->
+                                            <Label Text="{Binding PriorityIcon}"
+                                                   FontSize="20"
+                                                   VerticalOptions="Start"
+                                                   Margin="0,0,12,0"/>
+                                            <!-- File name + problem -->
+                                            <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                                <Label Text="{Binding FileName}"
+                                                       FontAttributes="Bold"
+                                                       FontSize="14"/>
+                                                <Label Text="{Binding Item.Problem}"
+                                                       FontSize="13"
+                                                       TextColor="#424242"/>
+                                            </VerticalStackLayout>
+                                            <!-- Impact badge -->
+                                            <Border Grid.Column="2"
+                                                    BackgroundColor="{Binding PriorityColor}"
+                                                    Padding="8,4"
+                                                    StrokeShape="RoundRectangle 4"
+                                                    VerticalOptions="Start">
+                                                <Label Text="{Binding PriorityText}"
+                                                       TextColor="White"
+                                                       FontSize="11"
+                                                       FontAttributes="Bold"/>
+                                            </Border>
+                                            <!-- Recommendation -->
+                                            <Label Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                                   Text="{Binding Item.Recommendation}"
+                                                   FontSize="12"
+                                                   TextColor="#757575"
+                                                   Margin="0,8,0,0"/>
+                                            <!-- Impact explanation -->
+                                            <Label Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                                                   Text="{Binding Item.ImpactExplanation}"
+                                                   FontSize="11"
+                                                   TextColor="#9E9E9E"
+                                                   FontAttributes="Italic"
+                                                   Margin="0,4,0,0"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                            <CollectionView.EmptyView>
+                                <Label Text="Run 'Assess Risk' to generate recommendations"
+                                       TextColor="Gray"
+                                       HorizontalOptions="Center"
+                                       Margin="0,40"/>
+                            </CollectionView.EmptyView>
+                        </CollectionView>
+                    </Border>
+
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <!-- DETAILS VIEW (File Browser + Code) -->
+            <Grid ColumnDefinitions="250,*,200"
+                  IsVisible="{Binding ShowDashboard, Converter={StaticResource InvertBool}}">
+                <!-- File Tree -->
+                <Border BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1E1E1E}"
+                        Margin="0,0,1,0">
+                    <Grid RowDefinitions="Auto,*">
+                        <Label Text="Affected Areas"
+                               FontAttributes="Bold"
+                               Padding="12,8"
+                               BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#333333}"/>
+                        <CollectionView Grid.Row="1"
+                                        ItemsSource="{Binding FileTree}"
+                                        SelectedItem="{Binding SelectedFile, Mode=TwoWay}"
+                                        SelectionMode="Single">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FileTreeItem">
+                                    <Grid Padding="8,4" ColumnDefinitions="Auto,*,Auto">
+                                        <Label Text="{Binding Icon}"
+                                               FontFamily="Segoe MDL2 Assets"
+                                               VerticalOptions="Center"/>
+                                        <Label Grid.Column="1"
+                                               Text="{Binding Name}"
+                                               Margin="4,0"
+                                               VerticalOptions="Center"/>
+                                        <Label Grid.Column="2"
+                                               Text="{Binding DiagnosticDisplay}"
+                                               TextColor="Orange"
+                                               VerticalOptions="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </Grid>
+                </Border>
+
+                <!-- Code Viewer -->
+                <Grid Grid.Column="1" RowDefinitions="Auto,*">
+                    <Label Text="{Binding CurrentFileName}"
                            FontAttributes="Bold"
                            Padding="12,8"
                            BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#333333}"/>
                     <CollectionView Grid.Row="1"
-                                    ItemsSource="{Binding FileTree}"
-                                    SelectedItem="{Binding SelectedFile, Mode=TwoWay}"
-                                    SelectionMode="Single">
+                                    ItemsSource="{Binding CodeLines}"
+                                    SelectionMode="None">
                         <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="vm:FileTreeItem">
-                                <Grid Padding="8,4" ColumnDefinitions="Auto,*,Auto">
-                                    <Label Text="{Binding Icon}"
-                                           FontFamily="Segoe MDL2 Assets"
-                                           VerticalOptions="Center"/>
+                            <DataTemplate x:DataType="vm:CodeLine">
+                                <Grid ColumnDefinitions="50,*"
+                                      BackgroundColor="{Binding BackgroundColor}"
+                                      Padding="4,2">
+                                    <Label Text="{Binding LineNumber}"
+                                           TextColor="{Binding LineNumberColor}"
+                                           HorizontalTextAlignment="End"
+                                           FontFamily="Consolas"
+                                           FontSize="12"
+                                           Margin="0,0,8,0"/>
                                     <Label Grid.Column="1"
-                                           Text="{Binding Name}"
-                                           Margin="4,0"
-                                           VerticalOptions="Center"/>
-                                    <Label Grid.Column="2"
-                                           Text="{Binding DiagnosticDisplay}"
-                                           TextColor="Orange"
-                                           VerticalOptions="Center"/>
+                                           Text="{Binding Text}"
+                                           FontFamily="Consolas"
+                                           FontSize="12"/>
                                 </Grid>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
                 </Grid>
-            </Border>
 
-            <!-- Code Viewer -->
-            <Grid Grid.Column="1" RowDefinitions="Auto,*">
-                <Label Text="{Binding CurrentFileName}"
-                       FontAttributes="Bold"
-                       Padding="12,8"
-                       BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#333333}"/>
-                <CollectionView Grid.Row="1"
-                                ItemsSource="{Binding CodeLines}"
-                                SelectionMode="None">
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="vm:CodeLine">
-                            <Grid ColumnDefinitions="50,*"
-                                  BackgroundColor="{Binding BackgroundColor}"
-                                  Padding="4,2">
-                                <Label Text="{Binding LineNumber}"
-                                       TextColor="{Binding LineNumberColor}"
-                                       HorizontalTextAlignment="End"
-                                       FontFamily="Consolas"
-                                       FontSize="12"
-                                       Margin="0,0,8,0"/>
-                                <Label Grid.Column="1"
-                                       Text="{Binding Text}"
-                                       FontFamily="Consolas"
-                                       FontSize="12"/>
-                            </Grid>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
+                <!-- Hotspots Panel -->
+                <Border Grid.Column="2"
+                        BackgroundColor="{AppThemeBinding Light=#FFF8E1, Dark=#3E2723}"
+                        Margin="1,0,0,0">
+                    <Grid RowDefinitions="Auto,*">
+                        <Label Text="🔥 Risk Hotspots"
+                               FontAttributes="Bold"
+                               Padding="12,8"
+                               BackgroundColor="{AppThemeBinding Light=#FFE082, Dark=#5D4037}"/>
+                        <CollectionView Grid.Row="1"
+                                        ItemsSource="{Binding Hotspots}"
+                                        SelectedItem="{Binding SelectedHotspot, Mode=TwoWay}"
+                                        SelectionMode="Single">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:HotspotItem">
+                                    <Grid Padding="8,6" RowDefinitions="Auto,Auto">
+                                        <HorizontalStackLayout Spacing="4">
+                                            <Label Text="{Binding Icon}"
+                                                   FontFamily="Segoe MDL2 Assets"
+                                                   TextColor="{Binding IconColor}"
+                                                   VerticalOptions="Center"/>
+                                            <Label Text="{Binding FileName}"
+                                                   FontAttributes="Bold"
+                                                   VerticalOptions="Center"
+                                                   LineBreakMode="TailTruncation"/>
+                                        </HorizontalStackLayout>
+                                        <Label Grid.Row="1"
+                                               Text="{Binding Summary}"
+                                               FontSize="11"
+                                               TextColor="Gray"
+                                               Margin="20,0,0,0"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </Grid>
+                </Border>
             </Grid>
-
-            <!-- Hotspots Panel (Right Sidebar) -->
-            <Border Grid.Column="2"
-                    BackgroundColor="{AppThemeBinding Light=#FFF8E1, Dark=#3E2723}"
-                    Margin="1,0,0,0">
-                <Grid RowDefinitions="Auto,*">
-                    <Label Text="🔥 Hotspots"
-                           FontAttributes="Bold"
-                           Padding="12,8"
-                           BackgroundColor="{AppThemeBinding Light=#FFE082, Dark=#5D4037}"/>
-                    <CollectionView Grid.Row="1"
-                                    ItemsSource="{Binding Hotspots}"
-                                    SelectedItem="{Binding SelectedHotspot, Mode=TwoWay}"
-                                    SelectionMode="Single">
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="vm:HotspotItem">
-                                <Grid Padding="8,6" RowDefinitions="Auto,Auto">
-                                    <HorizontalStackLayout Spacing="4">
-                                        <Label Text="{Binding Icon}"
-                                               FontFamily="Segoe MDL2 Assets"
-                                               TextColor="{Binding IconColor}"
-                                               VerticalOptions="Center"/>
-                                        <Label Text="{Binding FileName}"
-                                               FontAttributes="Bold"
-                                               VerticalOptions="Center"
-                                               LineBreakMode="TailTruncation"/>
-                                    </HorizontalStackLayout>
-                                    <Label Grid.Row="1"
-                                           Text="{Binding Summary}"
-                                           FontSize="11"
-                                           TextColor="Gray"
-                                           Margin="20,0,0,0"/>
-                                </Grid>
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                        <CollectionView.EmptyView>
-                            <Label Text="Run analysis to see hotspots"
-                                   TextColor="Gray"
-                                   HorizontalOptions="Center"
-                                   Margin="0,20"/>
-                        </CollectionView.EmptyView>
-                    </CollectionView>
-                </Grid>
-            </Border>
         </Grid>
 
-        <!-- Diagnostics Panel -->
-        <Border Grid.Row="3"
-                BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1E1E1E}"
-                HeightRequest="150">
-            <Grid RowDefinitions="Auto,*">
-                <Grid ColumnDefinitions="*,Auto"
-                      BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#333333}">
-                    <Label Text="Diagnostics"
-                           FontAttributes="Bold"
-                           Padding="12,8"/>
-                    <Label Grid.Column="1"
-                           Text="{Binding TotalDiagnostics, StringFormat='{0} total'}"
-                           TextColor="Gray"
-                           Padding="12,8"/>
-                </Grid>
-                <CollectionView Grid.Row="1"
-                                ItemsSource="{Binding Diagnostics}"
-                                SelectedItem="{Binding SelectedDiagnostic, Mode=TwoWay}"
-                                SelectionMode="Single">
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="vm:DiagnosticItem">
-                            <Grid Padding="12,6" ColumnDefinitions="Auto,Auto,*">
-                                <Label Text="{Binding Icon}"
-                                       FontFamily="Segoe MDL2 Assets"
-                                       TextColor="{Binding IconColor}"
-                                       VerticalOptions="Center"/>
-                                <Label Grid.Column="1"
-                                       Text="{Binding Location}"
-                                       TextColor="Gray"
-                                       Margin="8,0"
-                                       VerticalOptions="Center"/>
-                                <Label Grid.Column="2"
-                                       Text="{Binding Summary}"
-                                       VerticalOptions="Center"
-                                       LineBreakMode="TailTruncation"/>
-                            </Grid>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
-            </Grid>
-        </Border>
-
         <!-- Status Bar -->
-        <Label Grid.Row="4"
+        <Label Grid.Row="2"
                Text="{Binding StatusText}"
                Padding="12,4"
                BackgroundColor="{AppThemeBinding Light=#E0E0E0, Dark=#252525}"

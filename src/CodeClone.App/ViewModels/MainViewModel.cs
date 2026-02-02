@@ -11,9 +11,11 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly CodeCloneService _codeCloneService = new();
     private readonly SnapshotService _snapshotService = new();
+    private readonly InsightEngine _insightEngine = new();
     private AnalyzeResponse? _currentResponse;
     private Snapshot? _currentSnapshot;
     private Snapshot? _previousSnapshot;
+    private SnapshotComparison? _comparison;
     private string? _repoRoot;
 
     [ObservableProperty]
@@ -43,6 +45,42 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private HotspotItem? _selectedHotspot;
 
+    [ObservableProperty]
+    private ActionItemViewModel? _selectedAction;
+
+    // === VIEW STATE ===
+    [ObservableProperty]
+    private bool _showDashboard = true;
+
+    [ObservableProperty]
+    private bool _hasAnalysis;
+
+    // === INSIGHT DASHBOARD ===
+    [ObservableProperty]
+    private string _insightHeadline = "";
+
+    [ObservableProperty]
+    private string _insightSubtext = "";
+
+    [ObservableProperty]
+    private string _insightWhyItMatters = "";
+
+    [ObservableProperty]
+    private InsightSeverity _insightSeverity = InsightSeverity.Info;
+
+    // === METRICS ===
+    [ObservableProperty]
+    private double _duplicationPercent;
+
+    [ObservableProperty]
+    private int _hotspotCount;
+
+    [ObservableProperty]
+    private int _affectedFiles;
+
+    [ObservableProperty]
+    private int _affectedLines;
+
     // === RISK SCORE (The Headline Metric) ===
     [ObservableProperty]
     private RiskLevel _riskLevel = RiskLevel.Low;
@@ -59,10 +97,21 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasComparison;
 
+    // === TREND INSIGHT ===
+    [ObservableProperty]
+    private string _trendHeadline = "";
+
+    [ObservableProperty]
+    private string _trendSubtext = "";
+
+    [ObservableProperty]
+    private bool _hasTrendInsight;
+
     public ObservableCollection<FileTreeItem> FileTree { get; } = [];
     public ObservableCollection<CodeLine> CodeLines { get; } = [];
     public ObservableCollection<DiagnosticItem> Diagnostics { get; } = [];
     public ObservableCollection<HotspotItem> Hotspots { get; } = [];
+    public ObservableCollection<ActionItemViewModel> ActionItems { get; } = [];
 
     public string RiskColor => RiskLevel switch
     {
@@ -71,6 +120,20 @@ public partial class MainViewModel : ObservableObject
         RiskLevel.Medium => "#FBC02D",
         RiskLevel.Low => "#388E3C",
         _ => "#9E9E9E"
+    };
+
+    public string InsightColor => InsightSeverity switch
+    {
+        InsightSeverity.Critical => "#D32F2F",
+        InsightSeverity.Warning => "#F57C00",
+        _ => "#388E3C"
+    };
+
+    public string InsightBackgroundColor => InsightSeverity switch
+    {
+        InsightSeverity.Critical => "#FFEBEE",
+        InsightSeverity.Warning => "#FFF3E0",
+        _ => "#E8F5E9"
     };
 
     public string StatusColor => AnalysisStatus switch
@@ -107,12 +170,12 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task RunAnalysisAsync()
+    private async Task AssessRiskAsync()
     {
         if (_repoRoot is null) return;
 
         IsAnalyzing = true;
-        StatusText = "Running analysis...";
+        StatusText = "Assessing risk...";
 
         try
         {
@@ -126,23 +189,24 @@ public partial class MainViewModel : ObservableObject
                 _currentResponse = result.Response;
 
                 // Create and save snapshot
-                StatusText = "Saving snapshot...";
+                StatusText = "Generating insights...";
                 _currentSnapshot = await _snapshotService.CreateSnapshotAsync(_repoRoot, result.Response);
 
-                LoadAnalysisResults(result.Response, _currentSnapshot);
-
                 // Compare with previous if available
-                if (_previousSnapshot is not null)
-                {
-                    var comparison = _snapshotService.Compare(_previousSnapshot, _currentSnapshot);
-                    UpdateComparison(comparison);
-                }
+                _comparison = _previousSnapshot is not null
+                    ? _snapshotService.Compare(_previousSnapshot, _currentSnapshot)
+                    : null;
 
-                StatusText = $"Analysis complete • Risk: {_currentSnapshot.RiskScore.Level}";
+                LoadAnalysisResults(result.Response, _currentSnapshot);
+                LoadInsights(_currentSnapshot, _comparison);
+
+                HasAnalysis = true;
+                ShowDashboard = true;
+                StatusText = $"Assessment complete • Risk: {_currentSnapshot.RiskScore.Level}";
             }
             else
             {
-                StatusText = result.Error ?? "Analysis failed";
+                StatusText = result.Error ?? "Assessment failed";
             }
         }
         finally
@@ -152,12 +216,23 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ShowDetails()
+    {
+        ShowDashboard = false;
+    }
+
+    [RelayCommand]
+    private void ShowInsights()
+    {
+        ShowDashboard = true;
+    }
+
+    [RelayCommand]
     private async Task ViewHistoryAsync()
     {
         if (_repoRoot is null) return;
 
         var snapshots = await _snapshotService.GetSnapshotsAsync(_repoRoot);
-        // TODO: Open history view/dialog
         StatusText = $"Found {snapshots.Count} historical snapshots";
     }
 
@@ -166,6 +241,7 @@ public partial class MainViewModel : ObservableObject
         if (value is not null && !value.IsDirectory)
         {
             LoadFileContent(value.FullPath);
+            ShowDashboard = false;
         }
     }
 
@@ -175,6 +251,7 @@ public partial class MainViewModel : ObservableObject
         {
             var fullPath = Path.Combine(_repoRoot, value.Diagnostic.File);
             LoadFileContent(fullPath);
+            ShowDashboard = false;
         }
     }
 
@@ -184,6 +261,17 @@ public partial class MainViewModel : ObservableObject
         {
             var fullPath = Path.Combine(_repoRoot, value.Hotspot.File);
             LoadFileContent(fullPath);
+            ShowDashboard = false;
+        }
+    }
+
+    partial void OnSelectedActionChanged(ActionItemViewModel? value)
+    {
+        if (value?.Item.File is not null && _repoRoot is not null)
+        {
+            var fullPath = Path.Combine(_repoRoot, value.Item.File);
+            LoadFileContent(fullPath);
+            ShowDashboard = false;
         }
     }
 
@@ -193,9 +281,12 @@ public partial class MainViewModel : ObservableObject
         CodeLines.Clear();
         Diagnostics.Clear();
         Hotspots.Clear();
+        ActionItems.Clear();
         _currentResponse = null;
         _currentSnapshot = null;
         HasComparison = false;
+        HasAnalysis = false;
+        ShowDashboard = true;
 
         var rootItem = new FileTreeItem
         {
@@ -212,18 +303,85 @@ public partial class MainViewModel : ObservableObject
         var latest = await _snapshotService.GetLatestSnapshotAsync(path);
         if (latest is not null)
         {
-            StatusText = $"Loaded: {path} • Last analyzed: {latest.Timestamp:g}";
+            StatusText = $"Loaded: {path} • Last assessed: {latest.Timestamp:g}";
             RiskLevel = latest.RiskScore.Level;
             RiskScore = latest.RiskScore.Score;
+            HasAnalysis = true;
+
+            // Load previous insights
+            LoadInsights(latest, null);
         }
         else
         {
-            StatusText = $"Loaded: {path} • No previous analysis";
+            StatusText = $"Loaded: {path} • Click 'Assess Risk' to analyze";
             RiskLevel = RiskLevel.Low;
             RiskScore = 0;
+            InsightHeadline = "No assessment yet";
+            InsightSubtext = "Click 'Assess Risk' to analyze this repository.";
+            InsightWhyItMatters = "";
         }
 
         AnalysisStatus = null;
+    }
+
+    private void LoadInsights(Snapshot snapshot, SnapshotComparison? comparison)
+    {
+        // Generate headline insight
+        var insight = _insightEngine.GenerateHeadlineInsight(snapshot);
+        InsightHeadline = insight.Headline;
+        InsightSubtext = insight.Subtext;
+        InsightWhyItMatters = insight.WhyItMatters;
+        InsightSeverity = insight.Severity;
+        OnPropertyChanged(nameof(InsightColor));
+        OnPropertyChanged(nameof(InsightBackgroundColor));
+
+        // Generate metrics
+        var metrics = _insightEngine.GenerateMetrics(snapshot, comparison);
+        DuplicationPercent = metrics.DuplicationPercent;
+        HotspotCount = metrics.HotspotCount;
+        AffectedFiles = metrics.AffectedFiles;
+        AffectedLines = metrics.AffectedLines;
+
+        // Generate action items
+        var actions = _insightEngine.GenerateActionItems(snapshot);
+        ActionItems.Clear();
+        foreach (var action in actions)
+        {
+            ActionItems.Add(new ActionItemViewModel { Item = action });
+        }
+
+        // Generate trend insight if comparison available
+        if (comparison is not null)
+        {
+            HasComparison = true;
+            DiagnosticDelta = comparison.DiagnosticDelta;
+            RiskTrend = comparison.Trend switch
+            {
+                TrendDirection.Improving => "improving",
+                TrendDirection.Worsening => "worsening",
+                _ => "stable"
+            };
+
+            var trendInsight = _insightEngine.GenerateTrendInsight(comparison);
+            if (trendInsight is not null)
+            {
+                HasTrendInsight = true;
+                TrendHeadline = trendInsight.Headline;
+                TrendSubtext = trendInsight.Subtext;
+            }
+            else
+            {
+                HasTrendInsight = false;
+            }
+
+            OnPropertyChanged(nameof(TrendIcon));
+            OnPropertyChanged(nameof(TrendColor));
+        }
+        else
+        {
+            HasComparison = false;
+            HasTrendInsight = false;
+        }
     }
 
     private async Task PopulateDirectoryAsync(FileTreeItem parent, string path, int maxDepth, int currentDepth = 0)
@@ -309,22 +467,6 @@ public partial class MainViewModel : ObservableObject
 
         // Update file tree with diagnostic counts
         UpdateFileTreeDiagnostics(response);
-    }
-
-    private void UpdateComparison(SnapshotComparison comparison)
-    {
-        HasComparison = true;
-        DiagnosticDelta = comparison.DiagnosticDelta;
-
-        RiskTrend = comparison.Trend switch
-        {
-            TrendDirection.Improving => "improving",
-            TrendDirection.Worsening => "worsening",
-            _ => "stable"
-        };
-
-        OnPropertyChanged(nameof(TrendIcon));
-        OnPropertyChanged(nameof(TrendColor));
     }
 
     private void UpdateFileTreeDiagnostics(AnalyzeResponse response)
