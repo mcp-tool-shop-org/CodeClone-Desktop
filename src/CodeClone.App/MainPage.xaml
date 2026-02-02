@@ -23,12 +23,12 @@
                         TextColor="White"
                         Margin="0,0,8,0"/>
                 <Button Grid.Column="2"
-                        Text="Insights"
+                        Text="← Insights"
                         Command="{Binding ShowInsightsCommand}"
                         IsVisible="{Binding HasAnalysis}"
                         Margin="0,0,4,0"/>
                 <Button Grid.Column="3"
-                        Text="Details"
+                        Text="Details →"
                         Command="{Binding ShowDetailsCommand}"
                         IsVisible="{Binding HasAnalysis}"
                         Margin="0,0,8,0"/>
@@ -38,12 +38,15 @@
                                    HeightRequest="20"
                                    HorizontalOptions="Start"/>
 
-                <!-- Risk Score Badge -->
+                <!-- Risk Score Badge (tappable for explanation) -->
                 <Border Grid.Column="5"
                         BackgroundColor="{Binding RiskColor}"
                         Padding="12,6"
                         StrokeShape="RoundRectangle 6"
                         IsVisible="{Binding HasAnalysis}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ShowScoreExplainerCommand}"/>
+                    </Border.GestureRecognizers>
                     <HorizontalStackLayout Spacing="8">
                         <Label Text="RISK:"
                                TextColor="White"
@@ -54,12 +57,20 @@
                                FontAttributes="Bold"
                                FontSize="14"
                                VerticalOptions="Center"/>
+                        <Label Text="{Binding RiskScore, StringFormat='({0})'}"
+                               TextColor="#FFFFFFCC"
+                               FontSize="11"
+                               VerticalOptions="Center"/>
                         <Label Text="{Binding TrendIcon}"
                                TextColor="White"
                                FontSize="16"
                                FontAttributes="Bold"
                                VerticalOptions="Center"
                                IsVisible="{Binding HasComparison}"/>
+                        <Label Text="ⓘ"
+                               TextColor="#FFFFFFAA"
+                               FontSize="12"
+                               VerticalOptions="Center"/>
                     </HorizontalStackLayout>
                 </Border>
             </Grid>
@@ -67,7 +78,85 @@
 
         <!-- Main Content Area -->
         <Grid Grid.Row="1">
-            <!-- INSIGHT DASHBOARD (Default View) -->
+
+            <!-- FIRST-RUN / NO REPO STATE -->
+            <VerticalStackLayout IsVisible="{Binding HasRepo, Converter={StaticResource InvertBool}}"
+                                 VerticalOptions="Center"
+                                 HorizontalOptions="Center"
+                                 Spacing="24"
+                                 Padding="48">
+                <Label Text="🔍"
+                       FontSize="64"
+                       HorizontalOptions="Center"/>
+                <Label Text="Understand Your Code Quality"
+                       FontSize="28"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center"
+                       TextColor="#1976D2"/>
+                <Label Text="CodeClone Desktop helps you find and fix quality issues&#10;before they become technical debt."
+                       FontSize="16"
+                       HorizontalOptions="Center"
+                       HorizontalTextAlignment="Center"
+                       TextColor="#616161"/>
+                <Button Text="Open a Repository"
+                        Command="{Binding OpenRepoCommand}"
+                        BackgroundColor="#1976D2"
+                        TextColor="White"
+                        Padding="24,12"
+                        FontSize="16"
+                        HorizontalOptions="Center"/>
+                <Label Text="Privacy-first: All analysis runs locally. Your code never leaves your machine."
+                       FontSize="12"
+                       TextColor="#9E9E9E"
+                       HorizontalOptions="Center"/>
+            </VerticalStackLayout>
+
+            <!-- REPO LOADED, NO ANALYSIS YET -->
+            <VerticalStackLayout IsVisible="{Binding ShowWelcome}"
+                                 VerticalOptions="Center"
+                                 HorizontalOptions="Center"
+                                 Spacing="20"
+                                 Padding="48">
+                <Label Text="📂"
+                       FontSize="48"
+                       HorizontalOptions="Center"/>
+                <Label Text="{Binding RepoName, StringFormat='Ready to assess: {0}'}"
+                       FontSize="22"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center"/>
+                <Label Text="Click 'Assess Risk' to analyze code quality and get actionable insights."
+                       FontSize="14"
+                       HorizontalOptions="Center"
+                       TextColor="#757575"/>
+                <Button Text="⚡ Assess Risk"
+                        Command="{Binding AssessRiskCommand}"
+                        BackgroundColor="#1976D2"
+                        TextColor="White"
+                        Padding="24,12"
+                        FontSize="16"
+                        HorizontalOptions="Center"/>
+                <VerticalStackLayout Spacing="8" Margin="0,16,0,0">
+                    <Label Text="What you'll get:"
+                           FontSize="12"
+                           FontAttributes="Bold"
+                           TextColor="#757575"
+                           HorizontalOptions="Center"/>
+                    <Label Text="✓ Risk score with plain-language explanation"
+                           FontSize="12"
+                           TextColor="#9E9E9E"
+                           HorizontalOptions="Center"/>
+                    <Label Text="✓ Prioritized list of what to fix first"
+                           FontSize="12"
+                           TextColor="#9E9E9E"
+                           HorizontalOptions="Center"/>
+                    <Label Text="✓ Before/after comparison with history"
+                           FontSize="12"
+                           TextColor="#9E9E9E"
+                           HorizontalOptions="Center"/>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+
+            <!-- INSIGHT DASHBOARD -->
             <ScrollView IsVisible="{Binding ShowDashboard}">
                 <VerticalStackLayout Padding="24" Spacing="20">
 
@@ -96,7 +185,7 @@
                         </VerticalStackLayout>
                     </Border>
 
-                    <!-- Trend Alert (if comparison available) -->
+                    <!-- Trend Alert -->
                     <Border BackgroundColor="{Binding TrendColor}"
                             Padding="16"
                             StrokeShape="RoundRectangle 8"
@@ -112,13 +201,57 @@
                         </VerticalStackLayout>
                     </Border>
 
+                    <!-- Score Explainer (expandable) -->
+                    <Border BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#2D2D2D}"
+                            Padding="16"
+                            StrokeShape="RoundRectangle 8"
+                            IsVisible="{Binding ShowScoreExplainer}">
+                        <VerticalStackLayout Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="📊 How the Risk Score Works"
+                                       FontSize="14"
+                                       FontAttributes="Bold"/>
+                                <Label Grid.Column="1"
+                                       Text="✕"
+                                       TextColor="Gray"
+                                       FontSize="16">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding HideScoreExplainerCommand}"/>
+                                    </Label.GestureRecognizers>
+                                </Label>
+                            </Grid>
+                            <Label Text="{Binding ScoreExplanation}"
+                                   FontSize="13"
+                                   TextColor="#616161"/>
+                            <CollectionView ItemsSource="{Binding ScoreFactors}"
+                                            HeightRequest="120">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ScoreFactorViewModel">
+                                        <Grid ColumnDefinitions="*,Auto,60" Padding="0,4">
+                                            <Label Text="{Binding Name}"
+                                                   FontSize="12"/>
+                                            <ProgressBar Grid.Column="1"
+                                                         Progress="{Binding NormalizedValue}"
+                                                         WidthRequest="100"
+                                                         ProgressColor="{Binding ProgressColor}"/>
+                                            <Label Grid.Column="2"
+                                                   Text="{Binding WeightedContribution, StringFormat='+{0}'}"
+                                                   FontSize="12"
+                                                   HorizontalTextAlignment="End"
+                                                   TextColor="Gray"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </VerticalStackLayout>
+                    </Border>
+
                     <!-- Key Metrics -->
                     <Label Text="Key Metrics"
                            FontSize="18"
                            FontAttributes="Bold"
                            Margin="0,8,0,0"/>
                     <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="16">
-                        <!-- Duplication % -->
                         <Border BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#2D2D2D}"
                                 Padding="16"
                                 StrokeShape="RoundRectangle 8">
@@ -132,7 +265,6 @@
                                        TextColor="Gray"/>
                             </VerticalStackLayout>
                         </Border>
-                        <!-- Hotspots -->
                         <Border Grid.Column="1"
                                 BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#2D2D2D}"
                                 Padding="16"
@@ -147,7 +279,6 @@
                                        TextColor="Gray"/>
                             </VerticalStackLayout>
                         </Border>
-                        <!-- Affected Files -->
                         <Border Grid.Column="2"
                                 BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#2D2D2D}"
                                 Padding="16"
@@ -162,7 +293,6 @@
                                        TextColor="Gray"/>
                             </VerticalStackLayout>
                         </Border>
-                        <!-- Affected Lines -->
                         <Border Grid.Column="3"
                                 BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#2D2D2D}"
                                 Padding="16"
@@ -197,12 +327,10 @@
                                             BackgroundColor="Transparent"
                                             StrokeThickness="0">
                                         <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto">
-                                            <!-- Priority indicator -->
                                             <Label Text="{Binding PriorityIcon}"
                                                    FontSize="20"
                                                    VerticalOptions="Start"
                                                    Margin="0,0,12,0"/>
-                                            <!-- File name + problem -->
                                             <VerticalStackLayout Grid.Column="1" Spacing="4">
                                                 <Label Text="{Binding FileName}"
                                                        FontAttributes="Bold"
@@ -211,7 +339,6 @@
                                                        FontSize="13"
                                                        TextColor="#424242"/>
                                             </VerticalStackLayout>
-                                            <!-- Impact badge -->
                                             <Border Grid.Column="2"
                                                     BackgroundColor="{Binding PriorityColor}"
                                                     Padding="8,4"
@@ -222,13 +349,11 @@
                                                        FontSize="11"
                                                        FontAttributes="Bold"/>
                                             </Border>
-                                            <!-- Recommendation -->
                                             <Label Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
                                                    Text="{Binding Item.Recommendation}"
                                                    FontSize="12"
                                                    TextColor="#757575"
                                                    Margin="0,8,0,0"/>
-                                            <!-- Impact explanation -->
                                             <Label Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
                                                    Text="{Binding Item.ImpactExplanation}"
                                                    FontSize="11"
@@ -240,7 +365,7 @@
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>
                             <CollectionView.EmptyView>
-                                <Label Text="Run 'Assess Risk' to generate recommendations"
+                                <Label Text="No issues found - your code is in great shape! 🎉"
                                        TextColor="Gray"
                                        HorizontalOptions="Center"
                                        Margin="0,40"/>
@@ -251,109 +376,144 @@
                 </VerticalStackLayout>
             </ScrollView>
 
-            <!-- DETAILS VIEW (File Browser + Code) -->
-            <Grid ColumnDefinitions="250,*,200"
-                  IsVisible="{Binding ShowDashboard, Converter={StaticResource InvertBool}}">
-                <!-- File Tree -->
-                <Border BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1E1E1E}"
-                        Margin="0,0,1,0">
-                    <Grid RowDefinitions="Auto,*">
-                        <Label Text="Affected Areas"
-                               FontAttributes="Bold"
-                               Padding="12,8"
-                               BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#333333}"/>
-                        <CollectionView Grid.Row="1"
-                                        ItemsSource="{Binding FileTree}"
-                                        SelectedItem="{Binding SelectedFile, Mode=TwoWay}"
-                                        SelectionMode="Single">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="vm:FileTreeItem">
-                                    <Grid Padding="8,4" ColumnDefinitions="Auto,*,Auto">
-                                        <Label Text="{Binding Icon}"
-                                               FontFamily="Segoe MDL2 Assets"
-                                               VerticalOptions="Center"/>
-                                        <Label Grid.Column="1"
-                                               Text="{Binding Name}"
-                                               Margin="4,0"
-                                               VerticalOptions="Center"/>
-                                        <Label Grid.Column="2"
-                                               Text="{Binding DiagnosticDisplay}"
-                                               TextColor="Orange"
-                                               VerticalOptions="Center"/>
-                                    </Grid>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-                    </Grid>
+            <!-- DETAILS VIEW with Breadcrumb -->
+            <Grid RowDefinitions="Auto,*"
+                  IsVisible="{Binding ShowDetailsView}">
+                <!-- Breadcrumb Bar -->
+                <Border BackgroundColor="{AppThemeBinding Light=#E3F2FD, Dark=#1A237E}"
+                        Padding="12,8">
+                    <HorizontalStackLayout Spacing="8">
+                        <Label Text="← Back to Insights"
+                               TextColor="#1976D2"
+                               TextDecorations="Underline">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ShowInsightsCommand}"/>
+                            </Label.GestureRecognizers>
+                        </Label>
+                        <Label Text="/"
+                               TextColor="Gray"/>
+                        <Label Text="{Binding CurrentFileName, StringFormat='Viewing: {0}'}"
+                               TextColor="#424242"
+                               FontAttributes="Bold"/>
+                    </HorizontalStackLayout>
                 </Border>
 
-                <!-- Code Viewer -->
-                <Grid Grid.Column="1" RowDefinitions="Auto,*">
-                    <Label Text="{Binding CurrentFileName}"
-                           FontAttributes="Bold"
-                           Padding="12,8"
-                           BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#333333}"/>
-                    <CollectionView Grid.Row="1"
-                                    ItemsSource="{Binding CodeLines}"
-                                    SelectionMode="None">
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="vm:CodeLine">
-                                <Grid ColumnDefinitions="50,*"
-                                      BackgroundColor="{Binding BackgroundColor}"
-                                      Padding="4,2">
-                                    <Label Text="{Binding LineNumber}"
-                                           TextColor="{Binding LineNumberColor}"
-                                           HorizontalTextAlignment="End"
-                                           FontFamily="Consolas"
-                                           FontSize="12"
-                                           Margin="0,0,8,0"/>
-                                    <Label Grid.Column="1"
-                                           Text="{Binding Text}"
-                                           FontFamily="Consolas"
-                                           FontSize="12"/>
-                                </Grid>
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                    </CollectionView>
-                </Grid>
-
-                <!-- Hotspots Panel -->
-                <Border Grid.Column="2"
-                        BackgroundColor="{AppThemeBinding Light=#FFF8E1, Dark=#3E2723}"
-                        Margin="1,0,0,0">
-                    <Grid RowDefinitions="Auto,*">
-                        <Label Text="🔥 Risk Hotspots"
-                               FontAttributes="Bold"
-                               Padding="12,8"
-                               BackgroundColor="{AppThemeBinding Light=#FFE082, Dark=#5D4037}"/>
-                        <CollectionView Grid.Row="1"
-                                        ItemsSource="{Binding Hotspots}"
-                                        SelectedItem="{Binding SelectedHotspot, Mode=TwoWay}"
-                                        SelectionMode="Single">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="vm:HotspotItem">
-                                    <Grid Padding="8,6" RowDefinitions="Auto,Auto">
-                                        <HorizontalStackLayout Spacing="4">
+                <!-- File Browser + Code -->
+                <Grid Grid.Row="1" ColumnDefinitions="250,*,200">
+                    <!-- File Tree -->
+                    <Border BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1E1E1E}"
+                            Margin="0,0,1,0">
+                        <Grid RowDefinitions="Auto,*">
+                            <Label Text="Affected Areas"
+                                   FontAttributes="Bold"
+                                   Padding="12,8"
+                                   BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#333333}"/>
+                            <CollectionView Grid.Row="1"
+                                            ItemsSource="{Binding FileTree}"
+                                            SelectedItem="{Binding SelectedFile, Mode=TwoWay}"
+                                            SelectionMode="Single">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FileTreeItem">
+                                        <Grid Padding="8,4" ColumnDefinitions="Auto,*,Auto">
                                             <Label Text="{Binding Icon}"
                                                    FontFamily="Segoe MDL2 Assets"
-                                                   TextColor="{Binding IconColor}"
                                                    VerticalOptions="Center"/>
-                                            <Label Text="{Binding FileName}"
-                                                   FontAttributes="Bold"
-                                                   VerticalOptions="Center"
-                                                   LineBreakMode="TailTruncation"/>
-                                        </HorizontalStackLayout>
-                                        <Label Grid.Row="1"
-                                               Text="{Binding Summary}"
-                                               FontSize="11"
-                                               TextColor="Gray"
-                                               Margin="20,0,0,0"/>
+                                            <Label Grid.Column="1"
+                                                   Text="{Binding Name}"
+                                                   Margin="4,0"
+                                                   VerticalOptions="Center"/>
+                                            <Label Grid.Column="2"
+                                                   Text="{Binding DiagnosticDisplay}"
+                                                   TextColor="Orange"
+                                                   VerticalOptions="Center"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </Grid>
+                    </Border>
+
+                    <!-- Code Viewer -->
+                    <Grid Grid.Column="1" RowDefinitions="Auto,*">
+                        <Grid ColumnDefinitions="*,Auto"
+                              BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#333333}">
+                            <Label Text="{Binding CurrentFileName}"
+                                   FontAttributes="Bold"
+                                   Padding="12,8"/>
+                            <Label Grid.Column="1"
+                                   Text="{Binding CurrentFileIssueCount, StringFormat='{0} issues in this file'}"
+                                   TextColor="Gray"
+                                   Padding="12,8"
+                                   IsVisible="{Binding HasCurrentFile}"/>
+                        </Grid>
+                        <CollectionView Grid.Row="1"
+                                        ItemsSource="{Binding CodeLines}"
+                                        SelectionMode="None">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CodeLine">
+                                    <Grid ColumnDefinitions="50,*"
+                                          BackgroundColor="{Binding BackgroundColor}"
+                                          Padding="4,2">
+                                        <Label Text="{Binding LineNumber}"
+                                               TextColor="{Binding LineNumberColor}"
+                                               HorizontalTextAlignment="End"
+                                               FontFamily="Consolas"
+                                               FontSize="12"
+                                               Margin="0,0,8,0"/>
+                                        <Label Grid.Column="1"
+                                               Text="{Binding Text}"
+                                               FontFamily="Consolas"
+                                               FontSize="12"/>
                                     </Grid>
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>
+                            <CollectionView.EmptyView>
+                                <Label Text="Select a file to view its contents"
+                                       TextColor="Gray"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center"/>
+                            </CollectionView.EmptyView>
                         </CollectionView>
                     </Grid>
-                </Border>
+
+                    <!-- Hotspots Panel -->
+                    <Border Grid.Column="2"
+                            BackgroundColor="{AppThemeBinding Light=#FFF8E1, Dark=#3E2723}"
+                            Margin="1,0,0,0">
+                        <Grid RowDefinitions="Auto,*">
+                            <Label Text="🔥 Risk Hotspots"
+                                   FontAttributes="Bold"
+                                   Padding="12,8"
+                                   BackgroundColor="{AppThemeBinding Light=#FFE082, Dark=#5D4037}"/>
+                            <CollectionView Grid.Row="1"
+                                            ItemsSource="{Binding Hotspots}"
+                                            SelectedItem="{Binding SelectedHotspot, Mode=TwoWay}"
+                                            SelectionMode="Single">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:HotspotItem">
+                                        <Grid Padding="8,6" RowDefinitions="Auto,Auto">
+                                            <HorizontalStackLayout Spacing="4">
+                                                <Label Text="{Binding Icon}"
+                                                       FontFamily="Segoe MDL2 Assets"
+                                                       TextColor="{Binding IconColor}"
+                                                       VerticalOptions="Center"/>
+                                                <Label Text="{Binding FileName}"
+                                                       FontAttributes="Bold"
+                                                       VerticalOptions="Center"
+                                                       LineBreakMode="TailTruncation"/>
+                                            </HorizontalStackLayout>
+                                            <Label Grid.Row="1"
+                                                   Text="{Binding Summary}"
+                                                   FontSize="11"
+                                                   TextColor="Gray"
+                                                   Margin="20,0,0,0"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </Grid>
+                    </Border>
+                </Grid>
             </Grid>
         </Grid>
 

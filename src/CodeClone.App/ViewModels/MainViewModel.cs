@@ -50,10 +50,31 @@ public partial class MainViewModel : ObservableObject
 
     // === VIEW STATE ===
     [ObservableProperty]
-    private bool _showDashboard = true;
+    private bool _showDashboard;
 
     [ObservableProperty]
     private bool _hasAnalysis;
+
+    [ObservableProperty]
+    private bool _hasRepo;
+
+    [ObservableProperty]
+    private string _repoName = "";
+
+    [ObservableProperty]
+    private bool _showScoreExplainer;
+
+    [ObservableProperty]
+    private string _scoreExplanation = "";
+
+    [ObservableProperty]
+    private int _currentFileIssueCount;
+
+    public bool ShowWelcome => HasRepo && !HasAnalysis;
+    public bool ShowDetailsView => HasAnalysis && !ShowDashboard;
+    public bool HasCurrentFile => !string.IsNullOrEmpty(CurrentFileName);
+
+    public ObservableCollection<ScoreFactorViewModel> ScoreFactors { get; } = [];
 
     // === INSIGHT DASHBOARD ===
     [ObservableProperty]
@@ -202,6 +223,8 @@ public partial class MainViewModel : ObservableObject
 
                 HasAnalysis = true;
                 ShowDashboard = true;
+                OnPropertyChanged(nameof(ShowWelcome));
+                OnPropertyChanged(nameof(ShowDetailsView));
                 StatusText = $"Assessment complete • Risk: {_currentSnapshot.RiskScore.Level}";
             }
             else
@@ -219,12 +242,26 @@ public partial class MainViewModel : ObservableObject
     private void ShowDetails()
     {
         ShowDashboard = false;
+        OnPropertyChanged(nameof(ShowDetailsView));
     }
 
     [RelayCommand]
     private void ShowInsights()
     {
         ShowDashboard = true;
+        OnPropertyChanged(nameof(ShowDetailsView));
+    }
+
+    [RelayCommand]
+    private void ShowScoreExplainerToggle()
+    {
+        ShowScoreExplainer = !ShowScoreExplainer;
+    }
+
+    [RelayCommand]
+    private void HideScoreExplainer()
+    {
+        ShowScoreExplainer = false;
     }
 
     [RelayCommand]
@@ -282,11 +319,17 @@ public partial class MainViewModel : ObservableObject
         Diagnostics.Clear();
         Hotspots.Clear();
         ActionItems.Clear();
+        ScoreFactors.Clear();
         _currentResponse = null;
         _currentSnapshot = null;
         HasComparison = false;
         HasAnalysis = false;
-        ShowDashboard = true;
+        HasRepo = true;
+        RepoName = Path.GetFileName(path);
+        ShowDashboard = false;
+        ShowScoreExplainer = false;
+        OnPropertyChanged(nameof(ShowWelcome));
+        OnPropertyChanged(nameof(ShowDetailsView));
 
         var rootItem = new FileTreeItem
         {
@@ -307,6 +350,9 @@ public partial class MainViewModel : ObservableObject
             RiskLevel = latest.RiskScore.Level;
             RiskScore = latest.RiskScore.Score;
             HasAnalysis = true;
+            OnPropertyChanged(nameof(ShowWelcome));
+            OnPropertyChanged(nameof(ShowDetailsView));
+            ShowDashboard = true;
 
             // Load previous insights
             LoadInsights(latest, null);
@@ -349,6 +395,15 @@ public partial class MainViewModel : ObservableObject
         {
             ActionItems.Add(new ActionItemViewModel { Item = action });
         }
+
+        // Generate score explainer
+        ScoreFactors.Clear();
+        foreach (var factor in snapshot.RiskScore.Factors)
+        {
+            ScoreFactors.Add(new ScoreFactorViewModel { Factor = factor });
+        }
+        ScoreExplanation = $"Your risk score of {snapshot.RiskScore.Score} is calculated from {snapshot.RiskScore.Factors.Count} factors. " +
+                          $"Each factor is weighted based on its impact on code maintainability.";
 
         // Generate trend insight if comparison available
         if (comparison is not null)
@@ -505,6 +560,15 @@ public partial class MainViewModel : ObservableObject
     {
         CodeLines.Clear();
         CurrentFileName = Path.GetFileName(path);
+        OnPropertyChanged(nameof(HasCurrentFile));
+
+        // Count issues in this file
+        if (_repoRoot is not null && _currentResponse is not null)
+        {
+            var relativePath = Path.GetRelativePath(_repoRoot, path);
+            CurrentFileIssueCount = _currentResponse.Diagnostics
+                .Count(d => string.Equals(d.File, relativePath, StringComparison.OrdinalIgnoreCase));
+        }
 
         if (!File.Exists(path)) return;
 
